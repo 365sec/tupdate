@@ -12,7 +12,7 @@ import uuid
 import requests
 import cgi
 from contextlib import closing
-import logset
+from  logset  import logger,initLog
 
 app = Flask(__name__)
 
@@ -53,7 +53,6 @@ class Update():
     def compare_versions(self):
         #if request.method == "POST":
             try:
-
                 f = open(config.STATUS_FILE_PATH, 'r')
                 content = json.loads(f.read())
                 f.close()
@@ -62,7 +61,7 @@ class Update():
                 poc_version = content.get("poc_version", "")
                 rule_version = content.get("rule_version", "")
                 url = "%s/version/compare?code_version=%s&poc_version=%s&rule_version=%s" % (upgrade_url,code_version,poc_version,rule_version)
-                log.logger.info(url)
+                logger.info(url)
                 try:
                     res = requests.get(url,timeout=10,verify=False)
 
@@ -131,7 +130,7 @@ class Update():
                             "version":"1.1888"
                         }
             except Exception,e:
-                log.logger.error(str(e))
+                logger.error(str(e))
                 content = {
                     "success":False,
                     "state":0,
@@ -157,38 +156,36 @@ class Update():
                 reg = re.search('filename=(?P<filename>[^\s]*)', content_disposition)
                 if reg:
                     filename = reg.group("filename")
+                else:
+                    #get file failed
+                    return 
                 data_count = 0
+                filename = os.path.join(config.UPDATE_PATH,filename)
+                logger.info("download file store:"+filename)
                 with open(filename, "wb") as file:
                     for data in response.iter_content(chunk_size=chunk_size):
                         file.write(data)
                         data_count = data_count + len(data)
                         self.progress = (data_count / content_size) * 100
+            
             self.progress = 100
-            #time.sleep(1)
             print(self.progress)
             try:
                 self.install_progress = 0
-                #content = os.popen('td01_install_pkt -i '+update_path+filename).read().rstrip()
-                content= install_pkt.td01_install_pkt(filename,version,version_type)
-                print("installing now!!!")
-                content
-                print content
-                status_dict = json.loads(content)
-                td01_install_pkt = status_dict.get("td01_install_pkt","")
-                print td01_install_pkt
-                if td01_install_pkt == "ok":
+                logger.info("installing start!")
+                if install_pkt.td01_install_pkt(filename,version,version_type) ==True:
                     self.version = version
                     self.install_status = 2
                 else:
                     self.install_status = 3
-                    print td01_install_pkt
+                logger.info("installing end!")
             except Exception,e:
-                print "install failure!"
-                print str(e)
+                logger.error("install failure!" + str(e))
                 self.install_status = 3
+                
         except Exception,e:
             print str(e)
-            log.logger.error(str(e))
+            logger.error(str(e))
             self.download_status = False
 
 
@@ -220,7 +217,7 @@ class Update():
                 }
             except Exception,e:
                 print str(e)
-                log.logger.error(str(e))
+                logger.error(str(e))
                 content = {
                     "success":False,
                     "msg":"下载失败！"
@@ -279,8 +276,8 @@ def compare():
 
     respones=tupdate1.compare_versions()
     print(respones)
-    log.logger.debug(respones)
-    log.logger.info(respones)
+    logger.debug(respones)
+    logger.info(respones)
     return respones
 
 @app.route('/update',methods=['GET','POST'])
@@ -309,8 +306,7 @@ def tupdate():
                         "msg":"开始升级"
                            }
                 respones=json.dumps(content, encoding="UTF-8", ensure_ascii=False)
-                log.logger.debug(respones)
-                log.logger.info(respones)
+                logger.info(respones)
             elif tupdate1.install_progress==1:
                 content={
                             "success":True,
@@ -380,22 +376,23 @@ def tupdate():
                              "msg": "自动安装，请勿操作"
         }
         respones = json.dumps(content, encoding="UTF-8", ensure_ascii=False)
-    log.logger.debug(respones)
+    logger.debug(respones)
     return respones
 @app.route('/status',methods=['GET','POST'])
 def status():
     respones=tupdate1.get_upgrade_status()
     return respones
 
-
-
-if  __name__ == '__main__':
-    tupdate1 = Update()
-    log = logset.Logger('../log/all.log', level='debug')
+tupdate1 = Update()
+def tupdate_deamon():
+    initLog()
     t = threading.Thread(target=tupdate1.instauto, args=())
     print ("main->",threading.currentThread().ident)
     t.start()
     app.run()
+    
+if  __name__ == '__main__':
+    tupdate_deamon()
 '''
     log = Logger('/all.log',level='debug')
     log.logger.debug('debug')
