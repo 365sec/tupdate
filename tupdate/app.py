@@ -22,7 +22,7 @@ def get_mac_address():
     return ":".join([mac[e:e+2] for e in range(0,11,2)])
 
 
-class Tupdate():
+class Update():
     ST_OTHER=0
     ST_DOWNLOAD = 1
     ST_INSTALL=2
@@ -54,7 +54,7 @@ class Tupdate():
         #if request.method == "POST":
             try:
 
-                f = open(config.version_status_path, 'r')
+                f = open(config.STATUS_FILE_PATH, 'r')
                 content = json.loads(f.read())
                 f.close()
                 upgrade_url = content.get("upgrade_url", "")
@@ -62,6 +62,7 @@ class Tupdate():
                 poc_version = content.get("poc_version", "")
                 rule_version = content.get("rule_version", "")
                 url = "%s/version/compare?code_version=%s&poc_version=%s&rule_version=%s" % (upgrade_url,code_version,poc_version,rule_version)
+                log.logger.info(url)
                 try:
                     res = requests.get(url,timeout=10,verify=False)
 
@@ -130,6 +131,7 @@ class Tupdate():
                             "version":"1.1888"
                         }
             except Exception,e:
+                log.logger.error(str(e))
                 content = {
                     "success":False,
                     "state":0,
@@ -186,6 +188,7 @@ class Tupdate():
                 self.install_status = 3
         except Exception,e:
             print str(e)
+            log.logger.error(str(e))
             self.download_status = False
 
 
@@ -217,6 +220,7 @@ class Tupdate():
                 }
             except Exception,e:
                 print str(e)
+                log.logger.error(str(e))
                 content = {
                     "success":False,
                     "msg":"下载失败！"
@@ -386,7 +390,7 @@ def status():
 
 
 if  __name__ == '__main__':
-    tupdate1 = Tupdate()
+    tupdate1 = Update()
     log = logset.Logger('../log/all.log', level='debug')
     t = threading.Thread(target=tupdate1.instauto, args=())
     print ("main->",threading.currentThread().ident)
