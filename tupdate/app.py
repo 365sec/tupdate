@@ -167,7 +167,7 @@ class Tupdate():
             try:
                 self.install_progress = 0
                 #content = os.popen('td01_install_pkt -i '+update_path+filename).read().rstrip()
-                content= install_pkt.td01_install_pkt(filename,"../configs/update_info",version,version_type)
+                content= install_pkt.td01_install_pkt(filename,version,version_type)
                 print("installing now!!!")
                 content
                 print content
