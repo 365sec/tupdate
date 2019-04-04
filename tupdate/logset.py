@@ -2,7 +2,6 @@
 import logging
 from config import LOG_PATH
 from logging import handlers
-from absl.logging import log
 
 
         
