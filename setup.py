@@ -7,7 +7,7 @@ setup(
     version = "1.0",
     author = "shaochuyu",
     author_email = "shaochuyu@qq.com",
-    install_requires = [""],
+    install_requires = ["flask"],
     packages=find_packages(),
     entry_points={
         "console_scripts":[
