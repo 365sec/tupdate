@@ -1,3 +1,4 @@
-STATUS_FILE_PATH="../configs/status.json"
+STATUS_FILE_PATH="/td01/status.json"
 UPDATE_PATH="/td01/tupdate"
-UPDATE_INFO_FILE="../configs/update_info"
+UPDATE_INFO_FILE="/td01/tupdate/info.txt"
+LOG_PATH="all.log"
