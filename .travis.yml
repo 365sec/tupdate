@@ -3,4 +3,3 @@ python:
  - 2.7.3
 script:
   - python setup.py install
-  - tupdate_deamon
