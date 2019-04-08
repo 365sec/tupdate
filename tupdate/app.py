@@ -162,6 +162,7 @@ class Update():
         :param filename:
         :return:
         """
+        logger.info(version,url,filename,version_type)
         try:
             self.progress=self.ST_INIT
             self.install_status = self.ST_NOTDOWN
@@ -192,10 +193,11 @@ class Update():
                         else:
                             self.install_status = self.ST_DOWNING
                             self.msg="下载阶段，下载中!"
-
+            logger.info(self.msg, self.install_status)
             if self.progress != 100.0:
                 self.msg = "下载阶段：下载失败!"
                 self.install_status=self.ST_DOWNFAILED
+                logger.info(self.msg, self.install_status)
                 return
             try:
                 logger.info("installing start!")
@@ -204,10 +206,13 @@ class Update():
                     self.version = version
                     self.install_status = self.ST_INSTALLFINISH
                     self.msg = "安装阶段，安装成功!"
+
                 else:
                     self.install_status = self.ST_INSTALLFAIL
                     self.msg = "安装阶段，安装失败!"
+
                 logger.info("installing end!")
+                logger.info(self.msg, self.install_status)
             except Exception,e:
                 self.msg = "安装阶段，安装失败!"
                 logger.error("install failure!" + str(e))
@@ -253,16 +258,15 @@ class Update():
 
 @app.route('/compare',methods=['GET','POST'])
 def compare():
-
     respones=tupdate1.compare_versions()
     print(respones)
-    logger.debug(respones)
     logger.info(respones)
     return respones
 
 @app.route('/update',methods=['GET','POST'])
 def tupdate():
     #check status
+    logger.info(tupdate1.install_auto,tupdate1.install_progress)
     if tupdate1.install_auto!=tupdate1.ST_INSTALLBYAUTO :
         tupdate1.install_auto=tupdate1.ST_INSTALLBYUSER
         if tupdate1.install_progress == tupdate1.ST_NOTINSTALL:
@@ -274,13 +278,12 @@ def tupdate():
             version = status.get("version", "")
             upgrade_url=status.get("upgrade_url","")
             massage=status.get("msg","")
+            logger.info(tupdate1.success,version_type,version,upgrade_url,massage)
             if tupdate1.success == True:
                 tupdate1.msg = "开始升级中!"
                 tupdate1.download_file(upgrade_url, version_type, version)
-                logger.info(tupdate1.msg)
             else:
                 tupdate1.msg=massage
-                logger.info(res)
                 tupdate1.install_progress = tupdate1.ST_NOTINSTALL
         else:
             tupdate1.msg = "升级中，请勿操作!"
@@ -298,6 +301,7 @@ def status():
         "massage": tupdate1.msg,
         "install_status":tupdate1.install_status
     }
+    logger.debug(content)
     return json.dumps(content,encoding="UTF-8", ensure_ascii=False)
 
 tupdate1 = Update()
