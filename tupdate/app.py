@@ -26,11 +26,7 @@ class Update():
     #一般状态的初始化
     ST_INIT=0  #状态初始化
 
-    #install_process 状态值
-    ST_NOTINSTALL = 0 #未安装
-    ST_INSTALLING = 1  #正在安装
-
-    #install_status 状态值
+    #status 状态值
     ST_NOTDOWN=0 #未下载
     ST_DOWNING =1 #下载中
     ST_DOWNSUCCESS =2 #下载完成
@@ -38,18 +34,11 @@ class Update():
     ST_INSTALLFINISH = 4 #安装完成
     ST_INSTALLFAIL = 5 #安装失败
 
-    # install_auto 状态值
-    ST_INSTALLBYAUTO=2 #自动安装
-    ST_INSTALLBYUSER=1 #人工安装
-    ST_FREE=0         #没自动安装，没人工安装
-
 
 
     def __init__(self):
         self.progress = self.ST_INIT  #下载进度
-        self.install_progress = self.ST_NOTINSTALL
-        self.install_status = self.ST_NOTDOWN
-        self.install_auto = self.ST_FREE
+        self.status = self.ST_NOTDOWN
         self.starttime = 3600
         self.msg=""
         self.success=False
@@ -80,15 +69,15 @@ class Update():
                 try:
                     res = requests.get(url,timeout=10,verify=False)
                     html = cgi.escape(res.text)
-                    status = json.loads(html)
-                    print status
+                    res = json.loads(html)
+                    print res
                 except:
-                    status = {
+                    res = {
                         "success":False,
                         "msg":"服务器连接失败！请检查网址是否正确！"
                     }
-                is_update = status.get("is_update",0)
-                success = status.get("success",False)
+                is_update = res.get("is_update",0)
+                success = res.get("success",False)
                 scan_status = "STOP"  # 默认d01不在扫描状态
                 '''
                 try:
@@ -109,8 +98,8 @@ class Update():
                 else:
                     if success:
                         if is_update == 1:
-                            version = status.get("version","")
-                            version_type = status.get("type","code")
+                            version = res.get("version","")
+                            version_type = res.get("type","code")
                             state = self.get_state(version_type)
                             content = {
                                 "success":True,
@@ -122,7 +111,7 @@ class Update():
                                 "upgrade_url":upgrade_url,
                             }
                         elif is_update == 0 :
-                            version_type = status.get("type","code")
+                            version_type = res.get("type","code")
                             state = self.get_state(version_type)
                             content = {
                                 "success":False,
@@ -142,7 +131,7 @@ class Update():
                         content = {
                             "success":False,
                             "state":0,
-                            "msg":status.get("msg",""),
+                            "msg":res.get("msg",""),
                             "version":"1.1"
                         }
             except Exception,e:
@@ -162,10 +151,8 @@ class Update():
         :param filename:
         :return:
         """
-        logger.info(version,url,filename,version_type)
         try:
-            self.progress=self.ST_INIT
-            self.install_status = self.ST_NOTDOWN
+            self.status = self.ST_NOTDOWN
             update_path = url
             with closing(requests.get(url, stream=True)) as response:
                 chunk_size = 1024
@@ -189,38 +176,37 @@ class Update():
                         self.progress=round(self.progress,3)
                         if self.progress == 100:
                             self.msg="下载阶段，下载成功!"
-                            self.install_status=self.ST_DOWNSUCCESS
+                            self.status=self.ST_DOWNSUCCESS
                         else:
-                            self.install_status = self.ST_DOWNING
+                            self.status = self.ST_DOWNING
                             self.msg="下载阶段，下载中!"
-            logger.info(self.msg, self.install_status)
+            logger.info(self.msg)
             if self.progress != 100.0:
                 self.msg = "下载阶段：下载失败!"
-                self.install_status=self.ST_DOWNFAILED
-                logger.info(self.msg, self.install_status)
+                self.status=self.ST_DOWNFAILED
+                logger.info(self.msg)
                 return
             try:
                 logger.info("installing start!")
                 self.msg = "安装阶段，安装中!"
                 if install_pkt.td01_install_pkt(filename,version,version_type) ==True :
                     self.version = version
-                    self.install_status = self.ST_INSTALLFINISH
+                    self.status = self.ST_INSTALLFINISH
                     self.msg = "安装阶段，安装成功!"
 
                 else:
-                    self.install_status = self.ST_INSTALLFAIL
+                    self.status = self.ST_INSTALLFAIL
                     self.msg = "安装阶段，安装失败!"
 
                 logger.info("installing end!")
-                logger.info(self.msg, self.install_status)
+                logger.info(self.msg)
             except Exception,e:
                 self.msg = "安装阶段，安装失败!"
                 logger.error("install failure!" + str(e))
-                self.install_status = self.ST_INSTALLFAIL
-            self.install_progress = self.ST_INIT
+                self.status = self.ST_INSTALLFAIL
         except Exception,e:
             logger.error(str(e))
-
+        self.status = self.ST_NOTDOWN
 
 
     def download_progress(self):
@@ -239,22 +225,21 @@ class Update():
                 t = threading.Thread(target=self.get_file,args=(version,get_file_url,filename,version_type))
                 t.start()
             except Exception,e:
-                    self.install_status=self.ST_INSTALLFAIL
+                    self.status=self.ST_INSTALLFAIL
                     self.msg="无法正常安装！"
 
 
     def instauto(self):
         while True:
             time.sleep(self.starttime)
-            if self.install_auto == self.ST_NOTINSTALL:
-                self.install_auto = self.ST_INSTALLBYAUTO
+            if self.status == self.ST_NOTDOWN:
                 res = self.compare_versions()
                 r = json.loads(res)
-                state = r["success"]
+                state = r.get("success","")
                 if state == True:
                     if self.install_progress == 0:
                         self.download_file()
-                self.install_auto = self.ST_NOTINSTALL
+                self.status = self.ST_NOTDOWN
 
 @app.route('/compare',methods=['GET','POST'])
 def compare():
@@ -266,29 +251,23 @@ def compare():
 @app.route('/update',methods=['GET','POST'])
 def tupdate():
     #check status
-    logger.info(tupdate1.install_auto,tupdate1.install_progress)
-    if tupdate1.install_auto!=tupdate1.ST_INSTALLBYAUTO :
-        tupdate1.install_auto=tupdate1.ST_INSTALLBYUSER
-        if tupdate1.install_progress == tupdate1.ST_NOTINSTALL:
-            tupdate1.install_progress=tupdate1.ST_INSTALLING
-            res = tupdate1.compare_versions()
-            status = json.loads(res)
-            tupdate1.success = status.get("success","")
-            version_type=status.get("version_type","")
-            version = status.get("version", "")
-            upgrade_url=status.get("upgrade_url","")
-            massage=status.get("msg","")
-            logger.info(tupdate1.success,version_type,version,upgrade_url,massage)
-            if tupdate1.success == True:
-                tupdate1.msg = "开始升级中!"
-                tupdate1.download_file(upgrade_url, version_type, version)
-            else:
-                tupdate1.msg=massage
-                tupdate1.install_progress = tupdate1.ST_NOTINSTALL
+    logger.info(tupdate1.status)
+    if tupdate1.status == tupdate1.ST_NOTDOWN:
+        res = json.loads(tupdate1.compare_versions())
+        tupdate1.success = res.get("success","")
+        version_type=res.get("version_type","")
+        version = res.get("version", "")
+        upgrade_url=res.get("upgrade_url","")
+        massage=res.get("msg","")
+        logger.info(massage)
+        if tupdate1.success == True:
+            tupdate1.msg = "开始升级中!"
+            tupdate1.download_file(upgrade_url, version_type, version)
         else:
-            tupdate1.msg = "升级中，请勿操作!"
+            tupdate1.msg=massage
+            tupdate1.status=tupdate1.ST_NOTDOWN
     else:
-        tupdate1.msg= "系统自动安装中!"
+        tupdate1.msg = "升级中，请勿操作!"
     logger.debug(tupdate1.msg)
     tupdate1.install_auto = tupdate1.ST_INIT
     return json.dumps({
@@ -299,7 +278,7 @@ def tupdate():
 def status():
     content = {
         "massage": tupdate1.msg,
-        "install_status":tupdate1.install_status
+        "status":tupdate1.status
     }
     logger.debug(content)
     return json.dumps(content,encoding="UTF-8", ensure_ascii=False)
