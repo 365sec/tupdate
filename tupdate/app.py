@@ -23,11 +23,8 @@ def get_mac_address():
 
 
 class Update():
-    #一般状态的初始化
-    ST_INIT=0  #状态初始化
-
     #status 状态值
-    ST_NOTDOWN=0 #未下载
+    ST_INIT=0 #未下载
     ST_DOWNING =1 #下载中
     ST_DOWNSUCCESS =2 #下载完成
     ST_DOWNFAILED =3 #下载失败
@@ -38,7 +35,7 @@ class Update():
 
     def __init__(self):
         self.progress = self.ST_INIT  #下载进度
-        self.status = self.ST_NOTDOWN
+        self.status = self.ST_INIT
         self.starttime = 3600
         self.msg=""
         self.success=False
@@ -152,7 +149,6 @@ class Update():
         :return:
         """
         try:
-            self.status = self.ST_NOTDOWN
             update_path = url
             with closing(requests.get(url, stream=True)) as response:
                 chunk_size = 1024
@@ -206,7 +202,6 @@ class Update():
                 self.status = self.ST_INSTALLFAIL
         except Exception,e:
             logger.error(str(e))
-        self.status = self.ST_NOTDOWN
 
 
     def download_progress(self):
@@ -232,14 +227,13 @@ class Update():
     def instauto(self):
         while True:
             time.sleep(self.starttime)
-            if self.status == self.ST_NOTDOWN:
+            if self.status == self.ST_INIT or self.status == self.ST_INSTALLFINISH or self.status == self.ST_INSTALLFAIL:
                 res = self.compare_versions()
                 r = json.loads(res)
                 state = r.get("success","")
                 if state == True:
                     if self.install_progress == 0:
                         self.download_file()
-                self.status = self.ST_NOTDOWN
 
 @app.route('/compare',methods=['GET','POST'])
 def compare():
@@ -252,7 +246,7 @@ def compare():
 def tupdate():
     #check status
     logger.info(tupdate1.status)
-    if tupdate1.status == tupdate1.ST_NOTDOWN:
+    if tupdate1.status == tupdate1.ST_INIT or tupdate1.status == tupdate1.ST_INSTALLFINISH or tupdate1.status == tupdate1.ST_INSTALLFAIL:
         res = json.loads(tupdate1.compare_versions())
         tupdate1.success = res.get("success","")
         version_type=res.get("version_type","")
