@@ -2,6 +2,9 @@
 import logging
 from config import LOG_PATH
 from logging import handlers
+import sys
+reload(sys)
+sys.setdefaultencoding('utf-8')
 
 
         
@@ -39,4 +42,8 @@ def initLog():
     th.setFormatter(format_str)  # 设置文件里写入的格式
     logger.addHandler(sh)  # 把对象加到logger里
     logger.addHandler(th)
-    
+'''
+if __name__ == "__main__":
+    initLog()
+    logger.info("中文")
+'''
