@@ -7,13 +7,12 @@ setup(
     version = "1.0",
     author = "shaochuyu",
     author_email = "shaochuyu@qq.com",
-    install_requires = ["redis","eventlet","requests","pytz","pymongo"],
+    install_requires = ["flask","requests"],
     packages=find_packages(),
     entry_points={
         "console_scripts":[
-            'td01_install_pkt=tupdate.install_pkt:td01_install_pkt',
             'td01_make_pkt=tupdate.make_pkt:td01_make_pkt',
-            
+            'tupdate_deamon=tupdate.app:tupdate_deamon'
         ]
     }
 )
