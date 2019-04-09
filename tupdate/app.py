@@ -36,7 +36,7 @@ class Update():
     def __init__(self):
         self.progress = self.ST_INIT  #下载进度
         self.status = self.ST_INIT
-        self.starttime = 3600
+        self.starttime = 10
         self.msg=""
         self.success=False
 
@@ -232,8 +232,7 @@ class Update():
                 r = json.loads(res)
                 state = r.get("success","")
                 if state == True:
-                    if self.install_progress == 0:
-                        self.download_file()
+                    tupdate()
 
 @app.route('/compare',methods=['GET','POST'])
 def compare():
@@ -259,7 +258,7 @@ def tupdate():
             tupdate1.download_file(upgrade_url, version_type, version)
         else:
             tupdate1.msg=massage
-            tupdate1.status=tupdate1.ST_NOTDOWN
+            tupdate1.status=tupdate1.ST_INIT
     else:
         tupdate1.msg = "升级中，请勿操作!"
     logger.debug(tupdate1.msg)
