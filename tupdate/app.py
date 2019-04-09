@@ -227,7 +227,7 @@ class Update():
     def instauto(self):
         while True:
             time.sleep(self.starttime)
-            if self.status == self.ST_INIT or self.status == self.ST_INSTALLFINISH or self.status == self.ST_INSTALLFAIL:
+            if tupdate1.status == tupdate1.ST_INIT or tupdate1.status == tupdate1.ST_INSTALLFINISH or tupdate1.status == tupdate1.ST_INSTALLFAIL or tupdate1.ST_DOWNFAILED:
                 res = self.compare_versions()
                 r = json.loads(res)
                 state = r.get("success","")
@@ -246,7 +246,7 @@ def compare():
 def tupdate():
     #check status
     logger.info(tupdate1.status)
-    if tupdate1.status == tupdate1.ST_INIT or tupdate1.status == tupdate1.ST_INSTALLFINISH or tupdate1.status == tupdate1.ST_INSTALLFAIL:
+    if tupdate1.status == tupdate1.ST_INIT or tupdate1.status == tupdate1.ST_INSTALLFINISH or tupdate1.status == tupdate1.ST_INSTALLFAIL or tupdate1.ST_DOWNFAILED:
         res = json.loads(tupdate1.compare_versions())
         tupdate1.success = res.get("success","")
         version_type=res.get("version_type","")
