@@ -36,7 +36,7 @@ class Update():
     def __init__(self):
         self.progress = self.ST_INIT  #下载进度
         self.status = self.ST_INIT
-        self.starttime = 10
+        self.starttime = 3600
         self.msg=""
         self.success=False
 
