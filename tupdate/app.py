@@ -223,6 +223,33 @@ class Update():
                     self.status=self.ST_INSTALLFAIL
                     self.msg="无法正常安装！"
 
+    def offline_install(self,package_path, version="", version_type=""):
+        if not os.path.exists(package_path):
+            self.status = self.ST_INSTALLFAIL
+            self.msg = "文件不存在！"
+        filename = package_path
+        try:
+            logger.info("installing start!")
+            self.msg = "安装阶段，安装中!"
+
+            if install_pkt.td01_install_pkt(filename, version, version_type) == True:
+                self.version = version
+                self.status = self.ST_INSTALLFINISH
+                self.msg = "安装阶段，安装成功!"
+
+            else:
+                self.status = self.ST_INSTALLFAIL
+                self.msg = "安装阶段，安装失败!"
+
+            logger.info("installing end!")
+            logger.info(self.msg)
+        except Exception, e:
+            self.msg = "安装阶段，安装失败!"
+            logger.error("install failure!" + str(e))
+            self.status = self.ST_INSTALLFAIL
+
+
+
 
     def instauto(self):
         while True:
@@ -232,8 +259,7 @@ class Update():
                 r = json.loads(res)
                 state = r.get("success","")
                 if state == True:
-                    if self.install_progress == 0:
-                        self.download_file()
+                    tupdate()
 
 @app.route('/compare',methods=['GET','POST'])
 def compare():
@@ -259,7 +285,7 @@ def tupdate():
             tupdate1.download_file(upgrade_url, version_type, version)
         else:
             tupdate1.msg=massage
-            tupdate1.status=tupdate1.ST_NOTDOWN
+            tupdate1.status=tupdate1.ST_INIT
     else:
         tupdate1.msg = "升级中，请勿操作!"
     logger.debug(tupdate1.msg)
@@ -276,6 +302,35 @@ def status():
     }
     logger.debug(content)
     return json.dumps(content,encoding="UTF-8", ensure_ascii=False)
+
+@app.route('/offline_update',methods=['GET','POST'])
+def offline_tupdate():
+    #check status
+    logger.info(tupdate1.status)
+    print request.json
+    if tupdate1.status == tupdate1.ST_INIT or tupdate1.status == tupdate1.ST_INSTALLFINISH or tupdate1.status == tupdate1.ST_INSTALLFAIL or tupdate1.ST_DOWNFAILED:
+        packet_info = json.loads(request.data)
+        tupdate1.success = packet_info.get("success","")
+        version_type=packet_info.get("version_type","")
+        version = packet_info.get("version", "")
+        packet_path=packet_info.get("packet_path","")
+
+        massage=packet_info.get("msg","")
+        logger.info(massage)
+        if tupdate1.success == True:
+            tupdate1.msg = "开始升级中!"
+            tupdate1.offline_install(packet_path, version_type, version)
+        else:
+            tupdate1.msg=massage
+            tupdate1.status=tupdate1.ST_INIT
+    else:
+        tupdate1.msg = "升级中，请勿操作!"
+    logger.debug(tupdate1.msg)
+    tupdate1.install_auto = tupdate1.ST_INIT
+    return json.dumps({
+        "massage":tupdate1.msg
+    },encoding="UTF-8", ensure_ascii=False)
+
 
 tupdate1 = Update()
 def tupdate_deamon():
