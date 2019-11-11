@@ -13,6 +13,7 @@ import requests
 import cgi
 from contextlib import closing
 from  logset  import logger,initLog
+from werkzeug.datastructures import ImmutableMultiDict
 
 app = Flask(__name__)
 
@@ -223,6 +224,46 @@ class Update():
                     self.status=self.ST_INSTALLFAIL
                     self.msg="无法正常安装！"
 
+    def offline_install(self,package_path,version_type,version):
+            try:
+                version = version
+                version_type = version_type
+                package_path = package_path
+                t = threading.Thread(target=self.offline,args=(package_path,version,version_type))
+                t.start()
+            except Exception,e:
+                    self.status=self.ST_INSTALLFAIL
+                    self.msg="无法正常安装！"
+
+
+    def offline(self,package_path, version=None, version_type=None):
+        if not os.path.exists(package_path):
+            self.status = self.ST_INSTALLFAIL
+            self.msg = "文件不存在:"
+        else:
+            filename = package_path
+            try:
+                self.status=self.ST_DOWNSUCCESS
+                logger.info("installing start!")
+                self.msg = "安装阶段，安装中!"
+                if install_pkt.td01_install_pkt(filename, version=version, version_type=version_type) == True:
+                    self.version = version
+                    self.status = self.ST_INSTALLFINISH
+                    self.msg = "安装阶段，安装成功!"
+
+                else:
+                    self.status = self.ST_INSTALLFAIL
+                    self.msg = "安装阶段，安装失败!"
+
+                logger.info("installing end!")
+                logger.info(self.msg)
+            except Exception, e:
+                self.msg = "安装阶段，安装失败!"
+                logger.error("install failure!" + str(e))
+                self.status = self.ST_INSTALLFAIL
+
+
+
 
     def instauto(self):
         while True:
@@ -275,6 +316,27 @@ def status():
     }
     logger.debug(content)
     return json.dumps(content,encoding="UTF-8", ensure_ascii=False)
+
+@app.route('/offline_update',methods=['GET','POST'])
+def offline_tupdate():
+    #check status
+    logger.info(tupdate1.status)
+    if tupdate1.status == tupdate1.ST_INIT or tupdate1.status == tupdate1.ST_INSTALLFINISH or tupdate1.status == tupdate1.ST_INSTALLFAIL or tupdate1.ST_DOWNFAILED:
+        packet_info = json.loads(request.get_data())
+        packet_path = packet_info.get("packet_path", "")
+        if packet_path:
+            tupdate1.msg = "开始升级中!"
+            tupdate1.offline_install(packet_path, version_type=None, version=None)
+        else:
+            tupdate1.status=tupdate1.ST_INIT
+    else:
+        tupdate1.msg = "升级中，请勿操作!"
+    logger.debug(tupdate1.msg)
+
+    return json.dumps({
+        "massage":tupdate1.msg
+    },encoding="UTF-8", ensure_ascii=False)
+
 
 tupdate1 = Update()
 def tupdate_deamon():
