@@ -13,7 +13,8 @@ import requests
 import cgi
 from contextlib import closing
 from  logset  import logger,initLog
-from werkzeug.datastructures import ImmutableMultiDict
+import urlparse
+from ftp import Ftp
 
 app = Flask(__name__)
 
@@ -34,12 +35,60 @@ class Update():
 
 
 
+
     def __init__(self):
         self.progress = self.ST_INIT  #下载进度
         self.status = self.ST_INIT
-        self.starttime = 3600
+        self.starttime = 30
+        self.mode=""
         self.msg=""
         self.success=False
+
+    def read_status_cfg(self):
+        try:
+            readcfg = open("status.json","r").read()
+            if readcfg:
+                cfg = json.loads(readcfg)
+            else:
+                return False,{}
+                self.msg="配置文件解析错误!"
+            upgrade_url = str(cfg.get("upgrade_url")).replace(" ","")
+            result =  urlparse.urlsplit(upgrade_url)
+            scheme =result.scheme
+            netloc =result.netloc
+            query = result.query
+            path = result.path
+            if scheme in ["ftp","http"]:
+                self.mode =scheme
+            else:
+                self.msg="意外的工作模式,检查upgrade_url!"
+                return False,{}
+            content={
+                "scheme":scheme,
+                "netloc":netloc,
+                "path":path
+            }
+            query_list = query.split("&")
+            for data in query_list:
+                temp = data.split("=")
+                key = temp[0]
+                value = temp[1]
+                content[key] = value
+            return  True,content
+        except Exception as e:
+            return False, {}
+            logger.error(str(e))
+
+
+
+        #"ftp: // 172.16.39.156?user = ftpuser &pass=123456 & port = 21"
+
+
+
+
+
+
+
 
     def get_state(self,version_type):
         if version_type == "code":
@@ -212,68 +261,84 @@ class Update():
         return json.dumps(content,ensure_ascii=False)
 
     def download_file(self,upgrade_url,version_type,version):
-            try:
-                version = version
-                version_type = version_type
-                url = upgrade_url
-                get_file_url = "%s/version/get_file?version=%s&type=%s" % (url,version,version_type)
-                filename = "%s.zip" % version
-                t = threading.Thread(target=self.get_file,args=(version,get_file_url,filename,version_type))
-                t.start()
-            except Exception,e:
-                    self.status=self.ST_INSTALLFAIL
-                    self.msg="无法正常安装！"
+        try:
+            version = version
+            version_type = version_type
+            url = upgrade_url
+            get_file_url = "%s/version/get_file?version=%s&type=%s" % (url,version,version_type)
+            filename = "%s.zip" % version
+            t = threading.Thread(target=self.get_file,args=(version,get_file_url,filename,version_type))
+            t.start()
+        except Exception,e:
+                self.status=self.ST_INSTALLFAIL
+                self.msg="无法正常安装！"
 
-    def offline_install(self,package_path,version_type,version):
-            try:
-                version = version
-                version_type = version_type
-                package_path = package_path
-                t = threading.Thread(target=self.offline,args=(package_path,version,version_type))
-                t.start()
-            except Exception,e:
-                    self.status=self.ST_INSTALLFAIL
-                    self.msg="无法正常安装！"
-
-
-    def offline(self,package_path, version=None, version_type=None):
+    def packet_install(self,package_path, version="", version_type=""):
         if not os.path.exists(package_path):
             self.status = self.ST_INSTALLFAIL
-            self.msg = "文件不存在:"
-        else:
-            filename = package_path
-            try:
-                self.status=self.ST_DOWNSUCCESS
-                logger.info("installing start!")
-                self.msg = "安装阶段，安装中!"
-                if install_pkt.td01_install_pkt(filename, version=version, version_type=version_type) == True:
-                    self.version = version
-                    self.status = self.ST_INSTALLFINISH
-                    self.msg = "安装阶段，安装成功!"
+            self.msg = "文件不存在！"
+        filename = package_path
+        try:
+            logger.info("installing start!")
+            self.msg = "安装阶段，安装中!"
 
-                else:
-                    self.status = self.ST_INSTALLFAIL
-                    self.msg = "安装阶段，安装失败!"
-
-                logger.info("installing end!")
-                logger.info(self.msg)
-            except Exception, e:
-                self.msg = "安装阶段，安装失败!"
-                logger.error("install failure!" + str(e))
+            if install_pkt.td01_install_pkt(filename, version, version_type) == True:
+                self.version = version
+                self.status = self.ST_INSTALLFINISH
+                self.msg = "安装阶段，安装成功!"
+            else:
                 self.status = self.ST_INSTALLFAIL
+                self.msg = "安装阶段，安装失败!"
 
-
+            logger.info("installing end!")
+            logger.info(self.msg)
+        except Exception, e:
+            self.msg = "安装阶段，安装失败!"
+            logger.error("install failure!" + str(e))
+            self.status = self.ST_INSTALLFAIL
 
 
     def instauto(self):
         while True:
+            status,cfg=self.read_status_cfg()
+            if not status:
+                logger.error("配置读取失败!")
+            else:
+                scheme = cfg.get("scheme")
+                if tupdate1.status == tupdate1.ST_INIT or tupdate1.status == tupdate1.ST_INSTALLFINISH or tupdate1.status == tupdate1.ST_INSTALLFAIL or tupdate1.ST_DOWNFAILED:
+                    try:
+                        if scheme =="http":
+                            res = self.compare_versions()
+                            r = json.loads(res)
+                            state = r.get("success","")
+                            if state == True:
+                                tupdate()
+                        elif scheme =="ftp":
+                            print "------->ftp updata start"
+                            ftp_ip =cfg.get("netloc")
+                            ftp_port =  cfg.get("query")
+                            ftp_user =cfg.get("user")
+                            ftp_pass = cfg.get("pass")
+                            ftp_path ="D:\\ftp_test"
+                            if not os.path.exists(ftp_path):
+                                os.makedirs(ftp_path)
+                            filename = ""
+                            ftp = Ftp()
+                            ftp.connect_ftp(ftp_ip, ftp_port, ftp_user, ftp_pass)
+                            for file in ftp.lst_file():
+                                if os.path.splitext(file)[1] == '.pkt':
+                                    filename = file
+                                    break
+                            else:
+                                continue
+                            filepath = ftp.downloadfile(ftp_path, filename)
+                            ftp.delete(filename)
+                            ftp.close()
+                            self.packet_install(filepath)
+                            print self.msg
+                    except Exception as e:
+                        logger.error(str(e))
             time.sleep(self.starttime)
-            if tupdate1.status == tupdate1.ST_INIT or tupdate1.status == tupdate1.ST_INSTALLFINISH or tupdate1.status == tupdate1.ST_INSTALLFAIL or tupdate1.ST_DOWNFAILED:
-                res = self.compare_versions()
-                r = json.loads(res)
-                state = r.get("success","")
-                if state == True:
-                    tupdate()
 
 @app.route('/compare',methods=['GET','POST'])
 def compare():
@@ -321,18 +386,25 @@ def status():
 def offline_tupdate():
     #check status
     logger.info(tupdate1.status)
+    print request.json
     if tupdate1.status == tupdate1.ST_INIT or tupdate1.status == tupdate1.ST_INSTALLFINISH or tupdate1.status == tupdate1.ST_INSTALLFAIL or tupdate1.ST_DOWNFAILED:
-        packet_info = json.loads(request.get_data())
-        packet_path = packet_info.get("packet_path", "")
-        if packet_path:
+        packet_info = json.loads(request.data)
+        tupdate1.success = packet_info.get("success","")
+        version_type=packet_info.get("version_type","")
+        version = packet_info.get("version", "")
+        packet_path=packet_info.get("packet_path","")
+        massage=packet_info.get("msg","")
+        logger.info(massage)
+        if tupdate1.success == True:
             tupdate1.msg = "开始升级中!"
-            tupdate1.offline_install(packet_path, version_type=None, version=None)
+            tupdate1.packet_install(packet_path, version_type, version)
         else:
+            tupdate1.msg=massage
             tupdate1.status=tupdate1.ST_INIT
     else:
         tupdate1.msg = "升级中，请勿操作!"
     logger.debug(tupdate1.msg)
-
+    tupdate1.install_auto = tupdate1.ST_INIT
     return json.dumps({
         "massage":tupdate1.msg
     },encoding="UTF-8", ensure_ascii=False)
@@ -344,7 +416,8 @@ def tupdate_deamon():
     t = threading.Thread(target=tupdate1.instauto, args=())
     print ("main->",threading.currentThread().ident)
     t.start()
-    app.run()
+    app.run(debug=True)
     
 if  __name__ == '__main__':
-    tupdate_deamon()
+    #tupdate_deamon()
+    tupdate1.instauto()
